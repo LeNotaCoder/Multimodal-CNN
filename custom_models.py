@@ -134,9 +134,9 @@ class FinalDualModel(nn.Module):
 
     
     
-class Dualbranch2(nn.Module):
+class Dualbranch(nn.Module):
     def __init__(self): 
-        super(Dualbranch2, self).__init__()
+        super(Dualbranch, self).__init__()
         
         self.branch1 = nn.Sequential(
             

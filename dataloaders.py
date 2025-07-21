@@ -6,10 +6,8 @@ import os
 import cv2
 from sklearn.model_selection import train_test_split
 
-sys_path = "/Users/yadyneshsonale/k/"
-import sys
-sys.path.append(f'{sys_path}functions.py')
-from functions import apply_algo, apply_fun_pre
+
+from preprocessing import apply_fun_pre
 
 
 class OCTDataset(torch.utils.data.Dataset):
@@ -86,7 +84,7 @@ class PairedDataSet(Dataset):
     
 
 
-def get_loaders(stri, batch_size=32):
+def get_loaders_oct(stri, batch_size=32):
     dataset_path = "/home/cs23b1055/" + stri
     
     print("get_loaders started")

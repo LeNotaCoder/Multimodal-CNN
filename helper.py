@@ -2,11 +2,8 @@ import os
 import cv2
 import sys
 import numpy as np
-sys_path = "/home/cs23b1055/"
 
-
-sys.path.append(f'{sys_path}functions.py')
-from functions import mini, fibonacci, algo3, apply_algo
+from preprocessing import apply_algo
 
 path ="/home/cs23b1055/oct"
 

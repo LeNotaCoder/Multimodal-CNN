@@ -1,162 +1,35 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 import torch.optim as optim
 import numpy as np
-import os
-import cv2
 from sklearn.model_selection import train_test_split
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, classification_report
 import pandas as pd
 from collections import Counter
 import matplotlib.pyplot as plt
-import torchvision.models as models 
-from torchvision.models import vgg16, VGG16_Weights
 
 sys_path = "/home/cs23b1055/"
 
-import sys
-sys.path.append(f'{sys_path}functions.py')
-from functions import fibonacci, mini, algo3, apply_algo, apply_clahe, apply_fun_pre, get_oct_image
-sys.path.append(f'{sys_path}dataloaders.py')
-from dataloaders import OCTDataset, PairedDataSet, get_loaders, get_loaders_fun
-sys.path.append(f'{sys_path}custom_models.py')
-from custom_models import FineFeatureCNN, fundus_vgg16, oct_fine_feat, FinalDualModel, Dualbranch2
+from preprocessing import apply_fun_pre, get_oct_image
+from dataloaders import PairedDataSet
+from custom_models import FineFeatureCNN, fundus_vgg16, oct_fine_feat, FinalDualModel, Dualbranch
 
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-"""
-train_loader, test_loader = get_loaders(stri="oct")
-"""
+
 model = FineFeatureCNN()
 model.load_state_dict(torch.load(f"{sys_path}oct_model.pth"))  # load weights
 model = model.to(device) 
-"""
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
-num_epochs = 20
 
-train_loss_history, test_loss_history = [], []
-train_acc_history, test_acc_history = [], []
-
-for epoch in range(num_epochs):
-    model.train()
-    running_loss, correct, total = 0.0, 0, 0
-
-    for images, labels in train_loader:
-        images, labels = images.to(device), labels.to(device)
-        optimizer.zero_grad()
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-        running_loss += loss.item() * images.size(0)
-        _, predicted = torch.max(outputs, 1)
-        correct += (predicted == labels).sum().item()
-        total += labels.size(0)
-
-    train_loss = running_loss / total
-    train_acc = correct / total
-    train_loss_history.append(train_loss)
-    train_acc_history.append(train_acc)
-
-    model.eval()
-    test_loss, correct, total = 0.0, 0, 0
-    with torch.no_grad():
-        for images, labels in test_loader:
-            images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-            test_loss += loss.item() * images.size(0)
-            _, predicted = torch.max(outputs, 1)
-            correct += (predicted == labels).sum().item()
-            total += labels.size(0)
-
-    test_loss /= total
-    test_acc = correct / total
-    test_loss_history.append(test_loss)
-    test_acc_history.append(test_acc)
-
-    print(f"Epoch [{epoch+1}/{num_epochs}] "
-          f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f} | "
-          f"Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f}")
-    
-    
-torch.save(model.state_dict(), "oct_model.pth")
-
-
-del train_loader
-del test_loader
-
-
-train_loader, test_loader = get_loaders_fun(stri="fun")
-"""
-model2 = Dualbranch2()
+model2 = Dualbranch()
 model2.load_state_dict(torch.load(f"{sys_path}fun_model.pth"))  # load weights
 model2 = model2.to(device)
-"""
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model2.parameters(), lr=0.001)
-num_epochs = 30
 
-train_loss_history, test_loss_history = [], []
-train_acc_history, test_acc_history = [], []
-
-# Training loop
-for epoch in range(num_epochs):
-    model2.train()
-    running_loss, correct, total = 0.0, 0, 0
-
-    for images, labels in train_loader:
-        images, labels = images.to(device), labels.to(device)
-        optimizer.zero_grad()
-        outputs = model2(images)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-        running_loss += loss.item() * images.size(0)
-        _, predicted = torch.max(outputs, 1)
-        correct += (predicted == labels).sum().item()
-        total += labels.size(0)
-    
-    # ... (rest of the training loop remains unchanged)
-
-    train_loss = running_loss / total
-    train_acc = correct / total
-    train_loss_history.append(train_loss)
-    train_acc_history.append(train_acc)
-
-    model2.eval()
-    test_loss, correct, total = 0.0, 0, 0
-    with torch.no_grad():
-        for images, labels in test_loader:
-            images, labels = images.to(device), labels.to(device)
-            outputs = model2(images)
-            loss = criterion(outputs, labels)
-            test_loss += loss.item() * images.size(0)
-            _, predicted = torch.max(outputs, 1)
-            correct += (predicted == labels).sum().item()
-            total += labels.size(0)
-
-    test_loss /= total
-    test_acc = correct / total
-    test_loss_history.append(test_loss)
-    test_acc_history.append(test_acc)
-
-    print(f"Epoch [{epoch+1}/{num_epochs}] "
-          f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f} | "
-          f"Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f}")
-    
-torch.save(model2.state_dict(), "fun_model.pth")
-
-del train_loader
-del test_loader
-
-"""
 # Data loading
 path1 = "/home/cs23b1055/images/eyefundus.csv"
 path2 = "/home/cs23b1055/images/oct.csv"
@@ -319,16 +192,14 @@ paired_loader = DataLoader(paired_train, batch_size=batch_size, shuffle=True, nu
 paired_val_loader = DataLoader(paired_test, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True)
 
 
-        
-
 del model
 del model2
 
 
 # Initialize models
-model1 = oct_fine_feat().to(device)
-model3 = fundus_vgg16().to(device)
-dual_model = FinalDualModel(model1, model3).to(device)
+model_oct = oct_fine_feat().to(device)
+model_fundus = fundus_vgg16().to(device)
+dual_model = FinalDualModel(model_oct, model_fundus).to(device)
 
 # Training parameters
 num_epochs = 60
