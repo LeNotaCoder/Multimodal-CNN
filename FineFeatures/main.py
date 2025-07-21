@@ -257,7 +257,7 @@ for epoch in range(num_epochs):
             fundus_batch = fundus_batch.to(device)
             oct_batch = oct_batch.to(device)
             labels_batch = labels_batch.long().to(device)
-            outputs = dual_model(fundus_batch, oct_batch)
+            outputs = dual_model(oct_batch, fundus_batch)
             loss = criterion_dual(outputs, labels_batch)
             val_loss += loss.item()
             _, predicted = torch.max(outputs.data, 1)

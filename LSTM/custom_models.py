@@ -141,7 +141,7 @@ class oct_fine_feat(nn.Module):
         )
 
     def forward(self, x):
-        print("oct_fine_feat started")
+
         x = self.features(x)
         x = self.classifier(x)
         return x
