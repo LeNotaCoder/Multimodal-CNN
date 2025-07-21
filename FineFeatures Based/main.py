@@ -225,7 +225,7 @@ for epoch in range(num_epochs):
         fundus_batch = fundus_batch.to(device)
         oct_batch = oct_batch.to(device)
         labels_batch = labels_batch.long().to(device)
-        outputs = dual_model(fundus_batch, oct_batch)
+        outputs = dual_model(oct_batch, fundus_batch)
         loss = criterion_dual(outputs, labels_batch) / accumulation_steps
         loss.backward()
         running_loss += loss.item() * accumulation_steps
@@ -314,7 +314,7 @@ with torch.no_grad():
         fundus_batch = fundus_batch.to(device)
         oct_batch = oct_batch.to(device)
         labels_batch = labels_batch.long().to(device)
-        outputs = dual_model(fundus_batch, oct_batch)
+        outputs = dual_model(oct_batch, fundus_batch)
         _, predicted = torch.max(outputs.data, 1)
         all_preds.extend(predicted.cpu().numpy())
         all_labels.extend(labels_batch.cpu().numpy())

@@ -28,17 +28,17 @@ class OCTDataset(torch.utils.data.Dataset):
     
     
 class PairedDataSet(Dataset):
-    def __init__(self, fundus_data, oct_data, labels, fun, model, transform=None, transform2=None, device='cpu'):
+    def __init__(self, fundus_data, oct_data, labels, fundus_model, oct_model, transform=None, transform2=None, device='cpu'):
         self.fundus_data = fundus_data
         self.oct_data = oct_data
         self.labels = labels
         self.transform = transform
         self.transform2 = transform2
-        self.model = model.to(device)
-        self.fun = fun.to(device)
+        self.oct_model = oct_model.to(device)
+        self.fundus_model = fundus_model.to(device)
         self.device = device
-        self.model.eval()
-        self.fun.eval()
+        self.oct_model.eval()
+        self.fundus_model.eval()
         
     def __len__(self):
         return len(self.labels)
@@ -54,14 +54,14 @@ class PairedDataSet(Dataset):
             oct_image = np.array(oct_image)
         
         # Convert and normalize OCT image
-        oct_image_tensor = torch.from_numpy(oct_image).permute(2, 0, 1).float()  # (3, H, W)
+        oct_image_tensor = torch.from_numpy(oct_image).permute(2, 0, 1).float()  
         if self.transform2:
             oct_image_tensor = self.transform2(oct_image_tensor)
         oct_image_tensor = oct_image_tensor.unsqueeze(0).to(self.device)
 
-        # Extract features from model
+        # Extract features from oct_model
         with torch.no_grad():
-            feature = self.model.features(oct_image_tensor)  # (1, 64, 8, 8)
+            feature = self.oct_model.features(oct_image_tensor)  # (1, 64, 8, 8)
         oct_feature = feature.squeeze(0).cpu()  # (64, 8, 8)
 
         # Convert and normalize Fundus image
@@ -73,7 +73,7 @@ class PairedDataSet(Dataset):
         fundus_image_tensor = fundus_image_tensor.unsqueeze(0).to(self.device)
         
         with torch.no_grad():
-            fun_feature = self.fun.features(fundus_image_tensor)  # (1, 64, 8, 8)
+            fun_feature = self.fundus_model.features(fundus_image_tensor)  # (1, 64, 8, 8)
         fundus_feature = fun_feature.squeeze(0).cpu()  # (64, 8, 8)
         
 

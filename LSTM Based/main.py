@@ -23,7 +23,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 model = CNNWithLSTMBlocks()
-model.load_state_dict(torch.load(f"{sys_path}attention_oct_model.pth"))  # load weights
+model.load_state_dict(torch.load(f"{sys_path}attention/attention_oct_model.pth"))  # load weights
 model = model.to(device) 
 
 model2 = Dualbranch()
@@ -257,7 +257,7 @@ for epoch in range(num_epochs):
             fundus_batch = fundus_batch.to(device)
             oct_batch = oct_batch.to(device)
             labels_batch = labels_batch.long().to(device)
-            outputs = dual_model(fundus_batch, oct_batch)
+            outputs = dual_model(oct_batch, fundus_batch)
             loss = criterion_dual(outputs, labels_batch)
             val_loss += loss.item()
             _, predicted = torch.max(outputs.data, 1)
@@ -314,7 +314,7 @@ with torch.no_grad():
         fundus_batch = fundus_batch.to(device)
         oct_batch = oct_batch.to(device)
         labels_batch = labels_batch.long().to(device)
-        outputs = dual_model(fundus_batch, oct_batch)
+        outputs = dual_model(oct_batch, fundus_batch)
         _, predicted = torch.max(outputs.data, 1)
         all_preds.extend(predicted.cpu().numpy())
         all_labels.extend(labels_batch.cpu().numpy())

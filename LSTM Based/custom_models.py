@@ -199,6 +199,7 @@ class FinalDualModel(nn.Module):
         )
         
     def forward(self, x1, x2):
+
         feat1 = self.oct_m.features(x1)
         feat2 = self.fun.features(x2)
         feat1 = feat1.view(feat1.size(0), -1)
