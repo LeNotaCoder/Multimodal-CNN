@@ -2,112 +2,79 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class MultiScaleAttention(nn.Module):
-    def __init__(self, in_channels, compressed_channels):
-        super(MultiScaleAttention, self).__init__()
-        self.compress_fn = nn.Conv2d(in_channels, compressed_channels, kernel_size=1)
-        self.compress_an = nn.Conv2d(in_channels, compressed_channels, kernel_size=1)
-        self.output_proj = nn.Conv2d(compressed_channels, in_channels, kernel_size=1)
+
+class MultiScaleLSTM(nn.Module):
+    def __init__(self, in_channels, hidden_dim):
+        super(MultiScaleLSTM, self).__init__()
+        self.in_channels = in_channels
+        self.hidden_dim = hidden_dim
+
+        
+        self.input_proj = nn.Conv2d(in_channels * 2, hidden_dim, kernel_size=1)
+        self.lstm = nn.LSTM(input_size=hidden_dim, hidden_size=hidden_dim, batch_first=True)
+        self.output_proj = nn.Conv2d(hidden_dim, in_channels, kernel_size=1)
 
     def forward(self, An_prev, Fn):
         B, C, H, W = Fn.shape
 
-        Fc_n = self.compress_fn(Fn)            
-        Ac_prev = self.compress_an(An_prev)     
+        concat = torch.cat([Fn, An_prev], dim=1)
+        projected = self.input_proj(concat) 
 
-        Fc_n_flat = Fc_n.view(B, -1, H * W)      
-        Ac_prev_flat = Ac_prev.view(B, -1, H * W)  
+        seq = projected.view(B, self.hidden_dim, -1).permute(0, 2, 1)
 
-        attn_map = torch.bmm(Fc_n_flat, Ac_prev_flat.transpose(1, 2))  
-        attn_map = F.softmax(attn_map, dim=-1)
+        lstm_out, _ = self.lstm(seq) 
 
-        attended = torch.bmm(attn_map, Fc_n_flat.transpose(1, 2))  
-        attended = attended.transpose(1, 2).view(B, -1, H, W)  
+        lstm_out = lstm_out.permute(0, 2, 1).contiguous().view(B, self.hidden_dim, H, W)
 
-        output = attended + Fc_n
-        output = self.output_proj(output)
+        out = self.output_proj(lstm_out) 
 
-        return output
+        return out
 
+class CNNWithLSTMBlocks(nn.Module):
+    def __init__(self, input_channels=4, num_classes=2):
+        super(CNNWithLSTMBlocks, self).__init__()
 
-class SelfAttention(nn.Module):
-    def __init__(self, in_channels, heads=1):
-        super(SelfAttention, self).__init__()
-        self.in_channels = in_channels
-        self.heads = heads
-        self.scale = (in_channels // heads) ** 0.5
-
-        self.query = nn.Conv2d(in_channels, in_channels, kernel_size=1)
-        self.key   = nn.Conv2d(in_channels, in_channels, kernel_size=1)
-        self.value = nn.Conv2d(in_channels, in_channels, kernel_size=1)
-        self.output_proj = nn.Conv2d(in_channels, in_channels, kernel_size=1)
-
-    def forward(self, x):
-        B, C, H, W = x.size()
-
-        Q = self.query(x).view(B, self.heads, C // self.heads, H * W)   
-        K = self.key(x).view(B, self.heads, C // self.heads, H * W)     
-        V = self.value(x).view(B, self.heads, C // self.heads, H * W)   
-
-        attn_weights = torch.einsum('bhcn,bhcm->bhnm', Q, K) / self.scale
-        attn_weights = F.softmax(attn_weights, dim=-1)
-
-        attn_output = torch.einsum('bhnm,bhcm->bhcn', attn_weights, V)
-        attn_output = attn_output.contiguous().view(B, C, H, W) 
-
-        out = attn_output + self.value(x)
-        return self.output_proj(out)
-
-
-class AttentionCNN(nn.Module):
-    def __init__(self):
-        super(AttentionCNN, self).__init__()
-
-        # Assume input channels for each image is 1
-        in_channels = 64
-        self.SA = SelfAttention(in_channels=in_channels)
-        self.MSA1 = MultiScaleAttention(in_channels=in_channels, compressed_channels=16)
-        self.MSA2 = MultiScaleAttention(in_channels=in_channels, compressed_channels=16)
-        self.MSA3 = MultiScaleAttention(in_channels=in_channels, compressed_channels=16)
-
-        self.conv1 = nn.Conv2d(1, in_channels, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(1, in_channels, kernel_size=3, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(1, in_channels, kernel_size=3, stride=1, padding=1)
-        self.conv_final = nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1)
-
-        self.fc_layers = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(in_channels * 224 * 224, 4096),
+        self.encoder = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.Linear(4096, 128),
+            nn.MaxPool2d(2),
+            nn.Conv2d(16, 32, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.Linear(128, 2)
+            nn.MaxPool2d(2)
         )
-        
+
+        self.lstm1 = MultiScaleLSTM(32, hidden_dim=64)
+        self.lstm2 = MultiScaleLSTM(32, hidden_dim=64)
+        self.lstm3 = MultiScaleLSTM(32, hidden_dim=64)
+
+        self.classifier = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Flatten(),
+            nn.Linear(32, num_classes)
+        )
+
     def features(self, x):
-        # x shape: [B, 4, 224, 224] -> split into 4 images
-        x_0 = x[:, 0:1, :, :]  # [B, 1, H, W]
+
+        x_0 = x[:, 0:1, :, :]
         x_1 = x[:, 1:2, :, :]
         x_2 = x[:, 2:3, :, :]
         x_3 = x[:, 3:4, :, :]
 
-        A_1 = self.SA(self.conv1(x_0))
-        F_2 = self.conv1(x_1)
-        A_2 = self.MSA1(A_1, F_2)
+        F_0 = self.encoder(x_0)
+        F_1 = self.encoder(x_1)
+        F_2 = self.encoder(x_2)
+        F_3 = self.encoder(x_3)
+        
+        A_1 = self.lstm1(F_0, F_1)
+        A_2 = self.lstm2(A_1, F_2)
+        A_3 = self.lstm3(A_2, F_3)
 
-        F_3 = self.conv2(x_2)
-        A_3 = self.MSA2(A_2, F_3)
-
-        F_4 = self.conv3(x_3)
-        A_4 = self.MSA3(A_3, F_4)
-
-        output = self.conv_final(A_4)
-        return output
+        return A_3 
     
     def forward(self, x):
         features = self.features(x)
-        output = self.fc_layers(features)
-        return output
+        out = self.classifier(features)
+        return out
 
 
 class FineFeatureCNN(nn.Module):
@@ -151,7 +118,7 @@ class oct_fine_feat(nn.Module):
         super(oct_fine_feat, self).__init__()
         
         self.features = nn.Sequential(
-            nn.Conv2d(512, 128, kernel_size=3, padding=1),
+            nn.Conv2d(32, 128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
             nn.Conv2d(128, 128, kernel_size=3, padding=1),

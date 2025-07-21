@@ -6,7 +6,6 @@ import os
 import cv2
 from sklearn.model_selection import train_test_split
 
-
 from preprocessing import apply_fun_pre
 
 
