@@ -63,7 +63,7 @@ for epoch in range(num_epochs):
           f"Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f}")
     
     
-torch.save(model.state_dict(), "attention_oct_model.pth")
+torch.save(model.state_dict(), "lstm_oct_model.pth")
 
 
 del train_loader

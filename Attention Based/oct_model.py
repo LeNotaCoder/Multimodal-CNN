@@ -5,17 +5,17 @@ import torch.optim as optim
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 from dataloaders import get_loaders_oct
-from custom_models import AttentionCNN
+from custom_models import CNNWithAttention
 
 
 train_loader, test_loader = get_loaders_oct(stri="oct")
 
-model = AttentionCNN()
+model = CNNWithAttention()
 model = model.to(device) 
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
-num_epochs = 20
+num_epochs = 60
 
 train_loss_history, test_loss_history = [], []
 train_acc_history, test_acc_history = [], []

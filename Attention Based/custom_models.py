@@ -2,120 +2,58 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class MultiScaleAttention(nn.Module):
-    def __init__(self, in_channels, compressed_channels):
-        super(MultiScaleAttention, self).__init__()
-        self.compress_fn = nn.Conv2d(in_channels, compressed_channels, kernel_size=1)
-        self.compress_an = nn.Conv2d(in_channels, compressed_channels, kernel_size=1)
-        self.output_proj = nn.Conv2d(compressed_channels, in_channels, kernel_size=1)
-
-    def forward(self, An_prev, Fn):
-        B, C, H, W = Fn.shape
-
-        Fc_n = self.compress_fn(Fn)            
-        Ac_prev = self.compress_an(An_prev)     
-
-        Fc_n_flat = Fc_n.view(B, -1, H * W)       # [B, c, HW]
-        Ac_prev_flat = Ac_prev.view(B, -1, H * W) # [B, c, HW]
-
-        # Attention map: [B, HW, HW]
-        attn_map = torch.bmm(Fc_n_flat.transpose(1, 2), Ac_prev_flat)  # [B, HW, HW]
-        attn_map = F.softmax(attn_map, dim=-1)
-
-        # Apply attention: [B, HW, HW] x [B, HW, c] = [B, HW, c]
-        attended = torch.bmm(attn_map, Fc_n_flat.transpose(1, 2))      # [B, HW, c]
-        attended = attended.permute(0, 2, 1).view(B, -1, H, W)          # [B, c, H, W]
-
-        output = attended + Fc_n
-        output = self.output_proj(output)
-
-        return output
-
-
-
-class SelfAttention(nn.Module):
-    def __init__(self, in_channels, heads=1):
-        super(SelfAttention, self).__init__()
-        self.in_channels = in_channels
-        self.heads = heads
-        self.scale = (in_channels // heads) ** 0.5
-
-        self.query = nn.Conv2d(in_channels, in_channels, kernel_size=1)
-        self.key   = nn.Conv2d(in_channels, in_channels, kernel_size=1)
-        self.value = nn.Conv2d(in_channels, in_channels, kernel_size=1)
-        self.output_proj = nn.Conv2d(in_channels, in_channels, kernel_size=1)
-
-    def forward(self, x):
-        B, C, H, W = x.size()
-
-        Q = self.query(x).view(B, self.heads, C // self.heads, H * W)   
-        K = self.key(x).view(B, self.heads, C // self.heads, H * W)     
-        V = self.value(x).view(B, self.heads, C // self.heads, H * W)   
-
-        attn_weights = torch.einsum('bhcn,bhcm->bhnm', Q, K) / self.scale
-        attn_weights = F.softmax(attn_weights, dim=-1)
-
-        attn_output = torch.einsum('bhnm,bhcm->bhcn', attn_weights, V)
-        attn_output = attn_output.contiguous().view(B, C, H, W) 
-
-        out = attn_output + self.value(x)
-        return self.output_proj(out)
-
-
-class AttentionCNN(nn.Module):
+class CNNWithAttention(nn.Module):
     def __init__(self):
-        super(AttentionCNN, self).__init__()
+        super(CNNWithAttention, self).__init__()
 
-        in_channels = 64
-
-        self.downsample = nn.AdaptiveAvgPool2d((56, 56))  # ↓↓↓ downsample to reduce memory
-
-        self.SA = SelfAttention(in_channels=in_channels)
-        self.MSA1 = MultiScaleAttention(in_channels=in_channels, compressed_channels=16)
-        self.MSA2 = MultiScaleAttention(in_channels=in_channels, compressed_channels=16)
-        self.MSA3 = MultiScaleAttention(in_channels=in_channels, compressed_channels=16)
-
-        self.conv1 = nn.Conv2d(1, in_channels, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(1, in_channels, kernel_size=3, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(1, in_channels, kernel_size=3, stride=1, padding=1)
-        self.conv_final = nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1)
+        self.conv_similarity = nn.Conv2d(1, 1, kernel_size=3, stride=5, padding=2)
+        self.conv1 = nn.Conv2d(4, 64, kernel_size=3, stride=2, padding=1)
+        self.conv2 = nn.Conv2d(64, 256, kernel_size=3, stride=2, padding=1)
+        self.conv3 = nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1)
 
         self.fc_layers = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(in_channels * 56 * 56, 4096),
+            nn.Linear(32768, 256),
             nn.ReLU(),
-            nn.Linear(4096, 128),
+            nn.Dropout(0.5),
+            nn.Linear(256, 128),
             nn.ReLU(),
+            nn.Dropout(0.5),
             nn.Linear(128, 2)
         )
-        
+
     def features(self, x):
+        # x shape: [B, 4, H, W]
         x_0 = x[:, 0:1, :, :]
         x_1 = x[:, 1:2, :, :]
         x_2 = x[:, 2:3, :, :]
         x_3 = x[:, 3:4, :, :]
 
-        x0_conv = self.conv1(x_0)
-        x0_down = self.downsample(x0_conv)
-        A_1 = self.SA(x0_down)
+        s0 = self.conv_similarity(x_0)
+        s1 = self.conv_similarity(x_1)
+        s2 = self.conv_similarity(x_2)
+        s3 = self.conv_similarity(x_3)
 
-        F_2 = self.downsample(self.conv1(x_1))
-        A_2 = self.MSA1(A_1, F_2)
+        attention = (s0 + s1 + s2 + s3) / 4  # shape: [B, 1, H', W']
+        attention = F.interpolate(attention, size=x.shape[2:], mode='bilinear', align_corners=False)
 
-        F_3 = self.downsample(self.conv2(x_2))
-        A_3 = self.MSA2(A_2, F_3)
+        x = x * attention  # broadcasting over 4 channels
 
-        F_4 = self.downsample(self.conv3(x_3))
-        A_4 = self.MSA3(A_3, F_4)
-
-        output = self.conv_final(A_4)
-        return output
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = F.relu(x)
+        x = F.max_pool2d(x, kernel_size=2, stride=2)
+        x = F.adaptive_avg_pool2d(x, (8, 8))
+        
+        return x    
     
     def forward(self, x):
-        features = self.features(x)
-        output = self.fc_layers(features)
-        return output
+        x = self.features(x)
+        x = x.view(x.size(0), -1) 
+        x = self.fc_layers(x)
+        return x
 
+    
 
 class FineFeatureCNN(nn.Module):
     def __init__(self):

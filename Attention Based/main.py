@@ -23,7 +23,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 model = AttentionCNN()
-model.load_state_dict(torch.load(f"{sys_path}attention_oct_model.pth"))  # load weights
+model.load_state_dict(torch.load(f"{sys_path}attention/attention_oct_model.pth"))  # load weights
 model = model.to(device) 
 
 model2 = Dualbranch()
