@@ -1,4 +1,4 @@
-# 🧠 DualStreamNet: Multimodal Deep Learning for Diabetic Retinopathy Detection
+# 🧠 Transfer Learning, Optical Coherence Tomography (OCT), Multimodal Deep Learning, Fundus Imaging
 
 ---
 
@@ -27,10 +27,18 @@ All images were resized to **224×224** before training.
 - This improves feature visibility and illumination consistency.
 
 <p align="center">
-  <img src="images/cfi1.png" width="80%"><br>
-  <img src="images/cfi2.png" width="80%">
+  <img src="images/cfi1.png" width="60%">
 </p>
+
+<br>
+
+<p align="center">
+  <img src="images/cfi2.png" width="60%">
+</p>
+
 <p align="center"><i>Intermediate and final outputs of the fundus preprocessing pipeline.</i></p>
+
+---
 
 ### 🌫️ Optical Coherence Tomography (OCT)
 - Converted to grayscale (0–255 intensity).  
@@ -40,10 +48,21 @@ All images were resized to **224×224** before training.
 - This preserves texture variations and reduces noise in OCT scans.
 
 <p align="center">
-  <img src="images/twe.png" width="70%"><br>
-  <img src="images/six.png" width="70%"><br>
-  <img src="images/fou.png" width="70%">
+  <img src="images/twe.png" width="55%">
 </p>
+
+<br>
+
+<p align="center">
+  <img src="images/six.png" width="55%">
+</p>
+
+<br>
+
+<p align="center">
+  <img src="images/fou.png" width="55%">
+</p>
+
 <p align="center"><i>Fibonacci-based binary plane decomposition of OCT images.</i></p>
 
 ---
@@ -57,7 +76,7 @@ A custom CNN designed for fine-grained OCT feature extraction.
 - Feature map output: **512×8×8**, with **5.7M trainable parameters**.
 
 <p align="center">
-  <img src="images/fine.png" width="85%">
+  <img src="images/fine.png" width="70%">
 </p>
 
 ---
@@ -71,7 +90,7 @@ A **Dual Adaptive Subtle-Feature Network** for fundus classification.
 - Feature map output: **512×14×14**, with **413M trainable parameters**.
 
 <p align="center">
-  <img src="images/dual.png" width="85%">
+  <img src="images/dual.png" width="70%">
 </p>
 
 ---
@@ -85,7 +104,7 @@ The multimodal fusion network combining features from both modalities.
 - **40.3M trainable parameters**.
 
 <p align="center">
-  <img src="images/final.png" width="85%">
+  <img src="images/final.png" width="70%">
 </p>
 
 ---
@@ -94,31 +113,49 @@ The multimodal fusion network combining features from both modalities.
 
 ### 🧮 Binary Classification (Normal, DR)
 
+<p align="center">
+
 | Class  | Precision | Recall | F1-Score | Support |
-|:-------|:----------:|:-------:|:---------:|:--------:|
+|:-------:|:----------:|:-------:|:---------:|:--------:|
 | Normal | 1.0000 | 0.9756 | 0.9877 | 82 |
 | DR     | 0.9794 | 1.0000 | 0.9896 | 95 |
 | **Accuracy** |  |  | **0.9887 (98.87%)** | 177 |
 
+</p>
+
 <p align="center">
-  <img src="images/binary_fine.png" width="80%"><br>
-  <img src="images/binary_confusion.png" width="70%">
+  <img src="images/binary_fine.png" width="60%">
+</p>
+
+<br>
+
+<p align="center">
+  <img src="images/binary_confusion.png" width="55%">
 </p>
 
 ---
 
 ### 🧮 Three-Class Classification (Normal, NPDR, PDR)
 
+<p align="center">
+
 | Class  | Precision | Recall | F1-Score | Support |
-|:-------|:----------:|:-------:|:---------:|:--------:|
+|:-------:|:----------:|:-------:|:---------:|:--------:|
 | Normal | 0.9688 | 0.9789 | 0.9738 | 95 |
 | NPDR   | 1.0000 | 0.9474 | 0.9730 | 95 |
 | PDR    | 0.9494 | 1.0000 | 0.9740 | 75 |
 | **Accuracy** |  |  | **0.9745 (97.45%)** | 265 |
 
+</p>
+
 <p align="center">
-  <img src="images/three_accuracy.png" width="80%"><br>
-  <img src="images/three_conf.png" width="70%">
+  <img src="images/three_accuracy.png" width="60%">
+</p>
+
+<br>
+
+<p align="center">
+  <img src="images/three_conf.png" width="55%">
 </p>
 
 ---
@@ -133,3 +170,7 @@ It achieves:
 This multimodal design demonstrates strong generalization and potential for **clinical deployment** in diabetic retinopathy screening systems.
 
 ---
+
+<p align="center">
+  <b>© 2025 DualStreamNet Research Team</b>
+</p>
