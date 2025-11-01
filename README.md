@@ -170,7 +170,3 @@ It achieves:
 This multimodal design demonstrates strong generalization and potential for **clinical deployment** in diabetic retinopathy screening systems.
 
 ---
-
-<p align="center">
-  <b>© 2025 DualStreamNet Research Team</b>
-</p>
